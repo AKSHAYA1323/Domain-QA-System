@@ -18,8 +18,8 @@ pipeline {
         stage('Build Image') {
             steps {
                 echo '📦 Building Docker Image for Next.js App...'
-                // Build the image matching the docker-compose naming convention
-                sh 'docker build -t ${DOCKER_IMAGE}:latest .'
+                // Build the image matching the docker-compose naming convention, with BuildKit enabled for caching
+                sh 'DOCKER_BUILDKIT=1 docker build -t ${DOCKER_IMAGE}:latest .'
             }
         }
 

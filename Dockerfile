@@ -5,11 +5,13 @@ WORKDIR /app
 
 # Copy dependency manifests first for layer caching
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 # ── Stage 2: Production Runner ─────────────────────────────────
 FROM node:20-alpine AS runner
