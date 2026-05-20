@@ -30,7 +30,8 @@ pipeline {
                     # Check if docker compose plugin is available inside Jenkins
                     if docker compose version >/dev/null 2>&1; then
                         echo "Using docker compose to deploy..."
-                        docker compose up -d --no-deps --force-recreate domainqa-web
+                        docker rm -f domainqa-web || true
+                        docker compose up -d --no-deps domainqa-web
                     else
                         echo "Docker compose not found natively, using raw Docker commands..."
                         

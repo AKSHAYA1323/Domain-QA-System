@@ -16,7 +16,7 @@ services:
       - REDIS_PORT=6379
       - NEXT_TELEMETRY_DISABLED=1
       - JENKINS_TOKEN=11edc3a1802f752d38eeb15b2ff53104de
-      - JENKINS_JOB_NAME=domainqa-pipeline
+      - JENKINS_JOB_NAME=Domain-QA-Project-Pipeline
       - JENKINS_USER=Akshaya
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
