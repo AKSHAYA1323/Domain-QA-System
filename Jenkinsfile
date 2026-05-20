@@ -2,66 +2,72 @@ pipeline {
     agent any
 
     environment {
+        // Match the docker-compose project name from the host
+        COMPOSE_PROJECT_NAME = 'domainqasystem'
         DOCKER_IMAGE = 'domainqasystem-domainqa-web'
-        COMPOSE_FILE = 'docker-compose.yml'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                echo '✅ Pipeline triggered — DomainQA CI/CD'
-                echo "Build #${env.BUILD_NUMBER} started at ${new Date()}"
+                echo '📥 Checking out repository from Git...'
+                checkout scm
             }
         }
 
-        stage('Verify Environment') {
+        stage('Build Image') {
             steps {
-                echo '🔍 Checking environment...'
-                sh 'node --version || echo "node not found"'
-                sh 'docker --version || echo "docker not found"'
-                sh 'docker ps --format "table {{.Names}}\t{{.Status}}" | head -20'
-            }
-        }
-
-        stage('Check Containers') {
-            steps {
-                echo '🐳 Listing DomainQA containers...'
-                sh 'docker ps --filter "name=domainqa" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
-            }
-        }
-
-        stage('Health Check') {
-            steps {
-                echo '🏥 Running health checks...'
-                sh '''
-                    echo "=== DomainQA Web ==="
-                    curl -sf http://domainqa-web:3000 > /dev/null && echo "WEB: OK" || echo "WEB: unreachable (expected from Jenkins container)"
-                    echo "=== Redis ==="
-                    docker exec domainqa-redis redis-cli ping || echo "REDIS: check failed"
-                    echo "=== All domainqa containers ==="
-                    docker inspect --format="{{.Name}}: {{.State.Status}}" $(docker ps -aq --filter name=domainqa)
-                '''
+                echo '📦 Building Docker Image for Next.js App...'
+                // Build the image matching the docker-compose naming convention
+                sh 'docker build -t ${DOCKER_IMAGE}:latest .'
             }
         }
 
         stage('Deploy') {
             steps {
-                echo '🚀 Triggering redeploy of DomainQA stack...'
+                echo '🚀 Deploying the new container...'
                 sh '''
-                    cd /app 2>/dev/null || echo "(no /app dir in Jenkins — deploy via docker socket)"
-                    docker ps --filter "name=domainqa" --format "{{.Names}}: {{.Status}}"
-                    echo "✅ Deploy step complete"
+                    # Check if docker compose plugin is available inside Jenkins
+                    if docker compose version >/dev/null 2>&1; then
+                        echo "Using docker compose to deploy..."
+                        docker compose up -d --no-deps --force-recreate domainqa-web
+                    else
+                        echo "Docker compose not found natively, using raw Docker commands..."
+                        
+                        docker stop domainqa-web || true
+                        docker rm domainqa-web || true
+                        
+                        docker run -d --name domainqa-web \\
+                            --restart unless-stopped \\
+                            -p 3001:3000 \\
+                            -e NODE_ENV=production \\
+                            -e JENKINS_URL=http://domainqa-jenkins:8080 \\
+                            -e REDIS_HOST=domainqa-redis \\
+                            -e REDIS_PORT=6379 \\
+                            -e NEXT_TELEMETRY_DISABLED=1 \\
+                            -v /var/run/docker.sock:/var/run/docker.sock:ro \\
+                            --network domainqasystem_domainqa-network \\
+                            ${DOCKER_IMAGE}:latest
+                    fi
                 '''
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                echo '🏥 Checking if the application is running...'
+                sh 'sleep 10'
+                sh 'docker ps --filter "name=domainqa-web" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
             }
         }
     }
 
     post {
         success {
-            echo '🎉 Pipeline completed successfully!'
+            echo '✅ Pipeline finished successfully! Your app is updated.'
         }
         failure {
-            echo '❌ Pipeline failed. Check the logs above.'
+            echo '❌ Pipeline failed! Please check the console output.'
         }
     }
 }
