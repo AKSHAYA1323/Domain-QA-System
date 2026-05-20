@@ -1,0 +1,358 @@
+
+================================================================
+   DomainQA — COMPLETE PROJECT EXPLANATION (PART 1)
+   Tech Stack · Architecture · Components · Design Decisions
+================================================================
+
+----------------------------------------------------------------
+1. WHAT IS THIS PROJECT?
+----------------------------------------------------------------
+
+DomainQA is an AI-powered, domain-specific Question & Answering
+web application built for the field of Machine Learning.
+
+It is NOT a generic chatbot. It is a specialized assistant that:
+  - Answers ML theory questions (Q&A mode)
+  - Generates runnable ML code (Code Gen mode)
+  - Suggests datasets for ML tasks (Dataset Suggestion mode)
+  - Recommends portfolio projects (Projects mode)
+
+The "domain" in DomainQA means it is restricted and optimized
+for ONE specific knowledge domain: Machine Learning.
+
+The biggest unique feature is RAG (Retrieval-Augmented Generation):
+  - Users can upload their OWN documents (PDFs, notes, papers)
+  - These documents are sent WITH the question to the AI
+  - So the AI answers based on YOUR specific uploaded content
+  - This grounds responses in real sources, not just model memory
+
+
+----------------------------------------------------------------
+2. PROBLEM THIS PROJECT SOLVES
+----------------------------------------------------------------
+
+Problem:
+  - ML is a vast field — theory, code, research, tools
+  - Students waste time searching across docs, papers, Stack Overflow
+  - Generic AI (ChatGPT etc.) gives broad, unfocused answers
+  - No tool lets you "chat with your own lecture notes or papers"
+
+Solution DomainQA provides:
+  - One platform with 4 purpose-built modes
+  - Upload your own reference material, get answers grounded in it
+  - ML-specific system prompting makes answers more precise
+  - Clean, distraction-free UI for focused learning
+
+
+----------------------------------------------------------------
+3. TECH STACK — EVERY TOOL EXPLAINED
+----------------------------------------------------------------
+
+FRONTEND:
+---------
+
+a) Next.js 16.2.6
+   - What: A full-stack React framework by Vercel
+   - Why used: Gives us both frontend AND a backend API in one project.
+     No need for a separate Express/Flask server.
+   - Key feature used: App Router (the /app directory structure),
+     and API Routes (/app/api/generate/route.ts)
+
+b) React 19.2.4
+   - What: JavaScript UI library by Meta (Facebook)
+   - Why used: The latest version of React with improved concurrent
+     rendering and better performance.
+   - Key features used: useState (state management), useRef (file input)
+
+c) TypeScript 5
+   - What: JavaScript with static types
+   - Why used: Catches bugs at compile time, not runtime.
+     Makes code more readable, self-documenting, and maintainable.
+   - Example: File[] type, ChatQuery interface — these prevent wrong
+     data from being passed between components.
+
+d) Tailwind CSS 4
+   - What: A utility-first CSS framework
+   - Why used: Write styling directly in JSX className — no separate
+     CSS files needed. Very fast UI development.
+   - Example: className="flex items-center gap-4 rounded-2xl bg-white"
+     — this is all Tailwind utility classes, no custom CSS needed.
+
+e) Framer Motion 12
+   - What: Animation library for React
+   - Why used: Adds smooth, professional animations with minimal code.
+   - Where used: Tab switching animations (AnimatePresence + motion.div),
+     the sliding underline indicator on the active tab uses layoutId
+     so it smoothly moves between tabs.
+
+f) React Markdown + remark-gfm
+   - What: Libraries to render Markdown text as HTML in React
+   - Why used: AI responses come back as raw Markdown text
+     (with **bold**, ```code blocks```, ## headings etc.)
+     We need to render this properly in the browser.
+   - remark-gfm: Adds support for GitHub Flavored Markdown —
+     tables, strikethrough, task lists, etc.
+
+g) Lucide React
+   - What: An icon library with clean SVG icons
+   - Why used: Used for all icons in the app (Brain, Upload, Send,
+     MessageSquare, Code, Database, Lightbulb, History, etc.)
+
+h) next-themes
+   - What: Dark/light mode management library for Next.js
+   - Why used: Handles system preference detection, persists theme
+     in localStorage, and avoids flash of wrong theme on load.
+
+BACKEND / AI:
+-------------
+
+i) Google Gemini 2.5 Flash (via @google/generative-ai SDK)
+   - What: Google DeepMind's latest multimodal large language model
+   - Why Gemini 2.5 Flash specifically:
+     * "Flash" = optimized for speed and cost (vs Pro = more powerful)
+     * 2.5 = the latest generation as of 2025
+     * Multimodal = can process TEXT + FILES (PDFs, images) together
+     * Has a massive context window = can handle large uploaded docs
+   - How it's called: Using the official @google/generative-ai npm SDK
+
+j) Next.js API Routes (route.ts)
+   - What: Server-side endpoint built into Next.js
+   - Why used: Handles the API call to Gemini on the SERVER side,
+     not the client side. This keeps the API key secret — it never
+     gets exposed to the browser.
+   - File: /src/app/api/generate/route.ts
+
+k) FormData API
+   - What: Web standard for sending files + text in HTTP requests
+   - Why used: Allows us to send both the text prompt AND uploaded
+     binary files (PDFs etc.) in a single HTTP POST request.
+
+
+----------------------------------------------------------------
+4. FILE STRUCTURE — WHAT EACH FILE DOES
+----------------------------------------------------------------
+
+domainqa/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx          ← Main page. Holds shared state (files, history).
+│   │   │                       Renders Header + Sidebar + MainContent + RightSidebar
+│   │   ├── layout.tsx        ← Root layout. Sets font (Inter), ThemeProvider,
+│   │   │                       max-width container, body padding, metadata
+│   │   ├── globals.css       ← Global CSS. Brand color tokens, dark/light
+│   │   │                       background vars, custom scrollbar styling
+│   │   └── api/
+│   │       └── generate/
+│   │           └── route.ts  ← THE BACKEND. Receives FormData, calls Gemini,
+│   │                           returns AI response as JSON
+│   │
+│   └── components/
+│       ├── Header.tsx        ← Top bar. Shows logo (Brain icon), app name,
+│       │                       subtitle, and dark/light toggle button
+│       ├── Sidebar.tsx       ← LEFT sidebar. ML Topics list + file upload panel.
+│       │                       Manages file input ref, file type icons,
+│       │                       file size formatting, 5-file limit enforcement
+│       ├── MainContent.tsx   ← CENTER panel. THE CORE of the app.
+│       │                       Tab bar, starter prompts grid, feature cards,
+│       │                       textarea input, send button, spinner, AI response
+│       ├── RightSidebar.tsx  ← RIGHT sidebar. Query history (last 5 queries
+│       │                       with timestamps), Quick Stats panel, Tips panel
+│       ├── ThemeProvider.tsx ← Wraps the app with next-themes ThemeProvider
+│       └── ThemeToggle.tsx   ← Sun/Moon button that toggles dark/light mode
+
+
+----------------------------------------------------------------
+5. HOW THE APP WORKS — DATA FLOW (Step by Step)
+----------------------------------------------------------------
+
+STEP 1: User opens the app
+  → layout.tsx renders with Inter font + ThemeProvider
+  → page.tsx initializes two state variables:
+      * uploadedFiles: File[] = []   (files the user uploads)
+      * chatHistory: ChatQuery[] = []  (queries the user sends)
+  → All 4 components are rendered
+
+STEP 2: User uploads a file (optional)
+  → Sidebar.tsx has a hidden <input type="file" ref={fileInputRef}>
+  → "Upload PDF / Text" button triggers fileInputRef.current.click()
+  → User picks a file from their system
+  → handleFileChange() runs:
+      - Reads the selected files into an array
+      - Checks if total files > 5 (enforces the limit)
+      - Calls setUploadedFiles() which updates state in page.tsx
+  → The file appears in the Reference Docs panel with icon + size
+
+STEP 3: User types a question
+  → MainContent.tsx has a <textarea> bound to inputValue state
+  → User types OR clicks a starter prompt (which sets inputValue)
+  → They press Enter (or click the Send button)
+
+STEP 4: handleSend() fires
+  → Captures current input, clears the textarea
+  → Calls onSend(prompt) which updates chatHistory in page.tsx
+     (this makes the query appear in RightSidebar instantly)
+  → Sets isSending = true (shows the loading spinner)
+  → Builds a FormData object:
+      - Appends the text prompt as "prompt"
+      - Loops through uploadedFiles, appends each as "files"
+  → Sends a POST request to /api/generate
+
+STEP 5: /api/generate/route.ts runs (SERVER SIDE)
+  → Parses the FormData: extracts prompt + files
+  → For each file:
+      - Reads its bytes using file.arrayBuffer()
+      - Converts to Base64 string using Buffer.from().toString("base64")
+      - Wraps it in an inlineData object with mimeType
+  → Creates GoogleGenerativeAI instance with the API key
+  → Gets the gemini-2.5-flash model
+  → Builds the system prompt:
+      "You are DomainQA, an AI-powered Machine Learning Domain
+       Question & Answering System. Operate as an ML Expert,
+       Research Assistant, AI Tutor, and Code Generator.
+       Answer the following query concisely and accurately
+       using markdown formatting: [user's question]"
+  → Combines: [systemPrompt, ...inlineDataParts]
+  → Calls model.generateContent(contents) — sends to Gemini API
+  → Awaits the response, extracts the text
+  → Returns { response: text } as JSON
+
+STEP 6: Response displayed
+  → MainContent.tsx receives the JSON response
+  → Sets response state with the AI text
+  → isSending = false (spinner hides)
+  → <ReactMarkdown> renders the response text as formatted HTML
+     (code blocks, bold text, tables, etc. all render properly)
+  → User sees a formatted AI response with a "Clear response" button
+
+
+----------------------------------------------------------------
+6. KEY DESIGN DECISIONS (Why we made specific choices)
+----------------------------------------------------------------
+
+Q: Why Next.js instead of plain React + Express?
+A: Next.js App Router lets us have frontend + backend API in one
+   codebase, one npm install, one deployment. No CORS issues,
+   no separate server process. Much simpler architecture.
+
+Q: Why keep the API key on the server side (route.ts)?
+A: Security. If we called Gemini from the browser (client side),
+   the API key would be visible in browser DevTools → anyone
+   could steal it and rack up charges. By putting it in route.ts
+   (server-side), the key never reaches the browser.
+
+Q: Why Gemini 2.5 Flash instead of GPT-4 or Claude?
+A: a) Google's API is free to start (no credit card needed initially)
+   b) Flash model is optimized for speed — fast responses
+   c) Native multimodal: handles PDF/text files without extra parsing
+   d) Large context window: can handle large uploaded documents
+
+Q: Why convert files to Base64 instead of using file paths?
+A: The Gemini API accepts inline data (Base64 encoded bytes)
+   for multimodal inputs. There's no file system access in a
+   web context — files live in browser memory, so we read them
+   as ArrayBuffer and encode them to Base64 for transmission.
+
+Q: Why use FormData for the API call instead of JSON?
+A: JSON cannot carry binary data (files). FormData is the web
+   standard for sending mixed text + binary data in HTTP requests.
+   It's how HTML forms with file inputs work natively.
+
+Q: Why Framer Motion for animations?
+A: The tab switching needed the active indicator to smoothly "slide"
+   between tabs. Framer Motion's layoutId makes this trivial — it
+   automatically animates a shared element between positions.
+   AnimatePresence handles the tab content fade in/out.
+
+Q: Why 5-file limit?
+A: Gemini has context window limits. Too many large documents
+   would exceed the limit and cause errors. 5 files is a
+   practical balance between utility and API constraints.
+
+Q: Why ReactMarkdown?
+A: AI models return plain text with Markdown syntax. Without a
+   renderer, the user sees raw asterisks and backticks. ReactMarkdown
+   converts this to proper <strong>, <code>, <table>, <h2> etc.
+   elements, making responses readable and professional.
+
+
+----------------------------------------------------------------
+7. COMPONENT COMMUNICATION (Props & State)
+----------------------------------------------------------------
+
+page.tsx (Parent) holds:
+  - uploadedFiles: File[]
+  - chatHistory: ChatQuery[]
+
+It passes DOWN to children:
+  - Sidebar: uploadedFiles, setUploadedFiles
+  - MainContent: uploadedFiles, onSend (callback)
+  - RightSidebar: history (chatHistory)
+
+When user sends a query:
+  - MainContent calls onSend(prompt)
+  - This runs setChatHistory in page.tsx
+  - page.tsx re-renders, passing updated history to RightSidebar
+  - RightSidebar shows the new query instantly
+
+This is "lifting state up" — a core React pattern.
+Shared state lives in the common parent (page.tsx).
+
+
+----------------------------------------------------------------
+8. DARK MODE IMPLEMENTATION
+----------------------------------------------------------------
+
+- next-themes ThemeProvider wraps the entire app (layout.tsx)
+- defaultTheme="system" → reads OS preference on first load
+- enableSystem → respects system dark/light setting
+- attribute="class" → applies "dark" class to <html> element
+- In globals.css: CSS variables change based on .dark class
+    :root { --background: #f4f5f8 }  ← light mode
+    .dark { --background: #0f172a }  ← dark mode
+- In Tailwind: dark: prefix classes switch colors
+    bg-white dark:bg-slate-800 → white in light, dark gray in dark
+- ThemeToggle component: reads theme from useTheme() hook,
+  shows Sun icon (dark mode) or Moon icon (light mode)
+  clicking it calls setTheme("dark") or setTheme("light")
+
+
+----------------------------------------------------------------
+9. RESPONSIVE DESIGN
+----------------------------------------------------------------
+
+The layout adapts to screen size using Tailwind breakpoints:
+  - Mobile (<1280px): Components stack vertically
+  - Desktop (≥1280px xl:): Three-column layout (left, center, right)
+
+Code in page.tsx:
+  className="flex flex-col xl:flex-row gap-6"
+  → vertical on mobile, horizontal on desktop
+
+RightSidebar is hidden on small screens:
+  className="hidden xl:block"
+  → completely hidden below xl breakpoint
+
+
+----------------------------------------------------------------
+10. WHAT IS RAG (Simple Explanation)
+----------------------------------------------------------------
+
+RAG = Retrieval-Augmented Generation
+
+Traditional AI: Model answers from its training data only.
+RAG: Model answers using BOTH its training data + your documents.
+
+In DomainQA (simplified RAG):
+  1. User uploads a PDF (e.g., "Attention is All You Need" paper)
+  2. When user asks "Explain attention mechanism"
+  3. The PDF content is sent WITH the question to Gemini
+  4. Gemini reads the actual paper + uses its training knowledge
+  5. Answer is grounded in the real paper, not just memorized text
+
+True RAG uses vector databases (FAISS, Pinecone) to chunk and
+retrieve relevant sections. Our version sends the full document
+inline — simpler, but works great for small-to-medium documents.
+
+================================================================
+   END OF PART 1 — See explanation_part2_viva.txt for Q&A
+================================================================

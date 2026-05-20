@@ -1,0 +1,91 @@
+
+
+services:
+  # ── DomainQA Web Application ──────────────────────────────────
+  domainqa-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: domainqa-web
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - JENKINS_URL=http://domainqa-jenkins:8080
+      - REDIS_HOST=domainqa-redis
+      - REDIS_PORT=6379
+      - NEXT_TELEMETRY_DISABLED=1
+      - JENKINS_TOKEN=11edc3a1802f752d38eeb15b2ff53104de
+      - JENKINS_JOB_NAME=domainqa-pipeline
+      - JENKINS_USER=Akshaya
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    user: root
+    restart: unless-stopped
+    networks:
+      - domainqa-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Redis Cache (for chat history persistence) ────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: domainqa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - domainqa-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Monitoring Agent (system metrics for the dashboard) ───────
+  monitoring-agent:
+    build:
+      context: ./devops/monitoring
+      dockerfile: Dockerfile
+    container_name: domainqa-monitoring
+    ports:
+      - "9100:9100"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - domainqa-network
+
+  # ── Jenkins CI/CD ─────────────────────────────────────────────
+  jenkins:
+    build:
+      context: ./devops/jenkins
+      dockerfile: Dockerfile
+    container_name: domainqa-jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    user: root
+    restart: unless-stopped
+    networks:
+      - domainqa-network
+
+networks:
+  domainqa-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  jenkins-data:

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.domainqa</groupId>
+    <artifactId>domainqa-app</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>DomainQA - AI-Powered ML Q&amp;A System</name>
+    <description>
+        Maven-orchestrated build for the DomainQA Next.js application.
+        Uses frontend-maven-plugin to manage Node.js, NPM, and the Next.js build lifecycle.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <node.version>v20.11.0</node.version>
+        <npm.version>10.2.4</npm.version>
+        <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+    </properties>
+
+    <build>
+        <plugins>
+            <!-- ============================================================ -->
+            <!-- frontend-maven-plugin: Manages Node/NPM and Next.js builds   -->
+            <!-- ============================================================ -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>${frontend-maven-plugin.version}</version>
+
+                <configuration>
+                    <workingDirectory>${project.basedir}</workingDirectory>
+                </configuration>
+
+                <executions>
+                    <!-- STEP 1: Install Node and NPM -->
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <configuration>
+                            <nodeVersion>${node.version}</nodeVersion>
+                            <npmVersion>${npm.version}</npmVersion>
+                        </configuration>
+                    </execution>
+
+                    <!-- STEP 2: npm install (dependencies) -->
+                    <execution>
+                        <id>npm-install</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- STEP 3: Lint & Type Check -->
+                    <execution>
+                        <id>npm-lint</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <arguments>run lint</arguments>
+                        </configuration>
+                    </execution>
+
+                    <!-- STEP 4: Next.js Production Build -->
+                    <execution>
+                        <id>npm-build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>compile</phase>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- ============================================================ -->
+            <!-- Docker Maven Plugin: Build & push Docker images               -->
+            <!-- ============================================================ -->
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>0.44.0</version>
+                <configuration>
+                    <images>
+                        <image>
+                            <name>domainqa/web:%l</name>
+                            <build>
+                                <dockerFile>${project.basedir}/Dockerfile</dockerFile>
+                                <contextDir>${project.basedir}</contextDir>
+                                <tags>
+                                    <tag>latest</tag>
+                                    <tag>${project.version}</tag>
+                                </tags>
+                            </build>
+                        </image>
+                    </images>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>docker-build</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Profile for CI/CD: skips interactive prompts -->
+        <profile>
+            <id>ci</id>
+            <properties>
+                <skipTests>false</skipTests>
+            </properties>
+        </profile>
+    </profiles>
+</project>
