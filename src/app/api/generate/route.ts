@@ -75,8 +75,14 @@ export async function POST(req: Request) {
       fileContext = `\n\nThe user uploaded the following files: ${files.map((f) => f.name).join(", ")}. Use their attached document content when relevant.`;
     }
 
-    // Using the NEW Google API Key provided by the user
-    const apiKey = "AIzaSyCYmrg4s6gcH2d8JAMzzjK5Wb4TwgOOZdc";
+    // Read the Google Gemini API Key from environment variables to prevent public exposure on GitHub
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Gemini API key is not configured. Please configure GEMINI_API_KEY." },
+        { status: 500 }
+      );
+    }
     const genAI = new GoogleGenerativeAI(apiKey);
 
     const systemPrompt = `You are DomainQA, an AI-powered Machine Learning Domain Question & Answering System. 

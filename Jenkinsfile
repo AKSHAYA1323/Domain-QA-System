@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+        pollSCM('*/2 * * * *')
+    }
+
     environment {
         // Match the docker-compose project name from the host
         COMPOSE_PROJECT_NAME = 'domainqasystem'
@@ -42,6 +47,7 @@ pipeline {
                             --restart unless-stopped \\
                             -p 3001:3000 \\
                             -e NODE_ENV=production \\
+                            -e GEMINI_API_KEY \\
                             -e JENKINS_URL=http://domainqa-jenkins:8080 \\
                             -e REDIS_HOST=domainqa-redis \\
                             -e REDIS_PORT=6379 \\

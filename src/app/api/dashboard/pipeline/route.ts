@@ -254,8 +254,6 @@ async function fetchJobBuilds(job: JenkinsJob): Promise<ProcessedJob> {
   };
 }
 
-// ── Route handler ─────────────────────────────────────────────────────────
-
 export async function GET() {
   try {
     const result = await discoverAllJobs();
@@ -264,8 +262,31 @@ export async function GET() {
     const pingResp = await jenkinsGet("/api/json?tree=numExecutors,nodeName");
     const isConnected = pingResp.ok;
 
+    // Calculate primary pipeline stats for Overview tab
+    const visibleJobs = result.jobs.filter((j) => j.type !== "folder");
+    const jobName = process.env.JENKINS_JOB_NAME;
+    const targetJob = jobName ? visibleJobs.find((j) => j.name === jobName) : null;
+    const primaryJob = targetJob || visibleJobs[0] || null;
+
+    let successRate = 0;
+    let latest = null;
+
+    if (primaryJob) {
+      successRate = primaryJob.successRate;
+      const latestBuild = primaryJob.builds[0] || null;
+      if (latestBuild) {
+        latest = {
+          number: latestBuild.number,
+          result: latestBuild.result,
+          duration: latestBuild.duration,
+        };
+      }
+    }
+
     return NextResponse.json({
       ...result,
+      successRate,
+      latest,
       jenkinsUrl: JENKINS_URL,
       authenticatedAs: JENKINS_TOKEN ? JENKINS_USER : "anonymous",
       isConnected,

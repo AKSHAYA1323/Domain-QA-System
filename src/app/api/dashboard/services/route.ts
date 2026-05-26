@@ -66,21 +66,42 @@ function checkTcpPort(host: string, port: number, timeoutMs = 3000): Promise<{ o
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const services: ServiceHealth[] = [];
+
+    // Dynamically detect the request host and port to avoid hardcoded ports
+    const urlObj = new URL(request.url);
+    const requestPort = parseInt(urlObj.port || "80", 10);
+    const envPort = parseInt(process.env.PORT || "3000", 10);
+
+    // Try checking the API status on the environment port, fallback to request port if that fails
+    let checkPort = envPort;
+    let apiCheck = await checkEndpoint(`http://localhost:${checkPort}/api/dashboard/system`, 1000);
+    if (!apiCheck.ok && requestPort !== checkPort) {
+      const secondCheck = await checkEndpoint(`http://localhost:${requestPort}/api/dashboard/system`, 1000);
+      if (secondCheck.ok) {
+        apiCheck = secondCheck;
+        checkPort = requestPort;
+      }
+    }
 
     // Resolve container-network hostnames (inside Docker) or localhost (dev)
     const jenkinsHost = process.env.JENKINS_URL || "http://localhost:8080";
     const redisHost   = process.env.REDIS_HOST   || "localhost";
     const redisPort   = parseInt(process.env.REDIS_PORT || "6379", 10);
 
+    // Build the dynamic endpoint URL for DomainQA Web based on the incoming request headers
+    const hostHeader = request.headers.get("host") || urlObj.host || `localhost:${requestPort}`;
+    const protocol = request.headers.get("x-forwarded-proto") || urlObj.protocol.replace(":", "") || "http";
+    const webEndpoint = `${protocol}://${hostHeader}`;
+
     // 1. DomainQA Web – if this API route is running, the web app IS healthy.
     //    A circular fetch to localhost:3000 deadlocks under load, so we skip it.
     services.push({
       name: "DomainQA Web",
-      endpoint: "http://localhost:3001",
-      port: 3001,
+      endpoint: webEndpoint,
+      port: requestPort,
       status: "healthy",
       responseTime: 0,
       technology: "Next.js 16 + React 19",
@@ -88,11 +109,10 @@ export async function GET() {
     });
 
     // 2. Gemini API Bridge – ping /api/dashboard/system (no circular dependency)
-    const apiCheck = await checkEndpoint("http://localhost:3000/api/dashboard/system", 1500);
     services.push({
       name: "Gemini API Bridge",
       endpoint: "/api/generate",
-      port: 3000,
+      port: checkPort,
       status: apiCheck.ok ? "healthy" : "down",
       responseTime: apiCheck.responseTime,
       technology: "@google/generative-ai SDK",
