@@ -257,7 +257,7 @@ export function MainContent({ uploadedFiles, onSend }: MainContentProps) {
           </div>
           <div className="text-center mt-2">
             <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-              Press <kbd className="font-sans px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Enter</kbd> to send · <kbd className="font-sans px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Shift+Enter</kbd> for newline
+              Press <kbd className="font-sans px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Enterrrrrrrr</kbd> to send · <kbd className="font-sans px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Shift+Enter</kbd> for newline
             </span>
           </div>
         </div>
